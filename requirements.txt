@@ -5,3 +5,6 @@ langchain-community
 langgraph
 langchain-groq
 python-dotenv
+pytest
+httpx
+ruff
