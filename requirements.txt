@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-langchain-ollama
 langchain
 langchain-community
 langgraph

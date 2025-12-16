@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import chat
 from app.core.config import settings
+import uvicorn
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,5 +28,4 @@ async def health_check():
 app.include_router(chat.router)
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8888)

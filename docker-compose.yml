@@ -1,0 +1,18 @@
+services:
+  chat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chat
+    ports:
+      - "8888:8888"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", 'curl -f -s -o /dev/null http://0.0.0.0:8888/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
