@@ -1,0 +1,43 @@
+name: CD
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build -t chat:${{ github.sha }} .
+
+      - name: Save Docker image to tar
+        run: docker save chat:${{ github.sha }} -o chat.tar
+
+      - name: Copy artifacts to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          source: "chat.tar,docker-compose.yml"
+          target: "/opt/chat/"
+
+      - name: Load image and restart service on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          script: |
+            cd /opt/chat
+            docker load -i chat.tar
+            docker compose down
+            docker compose up -d
+            docker image prune -f
