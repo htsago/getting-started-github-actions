@@ -15,10 +15,10 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
-        run: docker build -t chat:${{ github.sha }} .
+        run: docker build -t chat:latest .
 
       - name: Save Docker image to tar
-        run: docker save chat:${{ github.sha }} -o chat.tar
+        run: docker save chat:latest -o chat.tar
 
       - name: Copy artifacts to VPS
         uses: appleboy/scp-action@v1.0.0

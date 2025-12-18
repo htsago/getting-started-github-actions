@@ -29,16 +29,15 @@ The workflow defines a single job named `deploy`, responsible for building, tran
    Initializes Docker Buildx via `docker/setup-buildx-action@v3` to enable efficient image builds.
 
 3. **Build Docker Image**  
-   Builds a Docker image tagged with the unique Git commit SHA:  
+   Builds a Docker image tagged with latest:  
    ```bash
-   docker build -t chat:${{ github.sha }} .
+   docker build -t chat:latest .
    ```
-   This ensures every deployment is traceable to a specific commit.
 
 4. **Save Docker Image to tar**  
    Exports the built image into a portable archive:  
    ```bash
-   docker save chat:${{ github.sha }} -o chat.tar
+   docker save chat:latest -o chat.tar
    ```
 
 5. **Copy Artifacts to VPS**  
@@ -71,8 +70,6 @@ The workflow defines a single job named `deploy`, responsible for building, tran
 
 - **Secrets Management**:  
   Sensitive data (SSH key, host, username) is stored as GitHub Actions secrets—never in code.
-- **Immutable Deployments**:  
-  Each image is tagged with `github.sha`, ensuring reproducibility and avoiding `latest` ambiguity.
 - **Idempotent Deployment**:  
   The workflow is safe to re-run; stopping and starting the stack has no side effects.
 - **Minimal Cleanup**:  
