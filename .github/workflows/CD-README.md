@@ -1,4 +1,4 @@
-### **CD Workflow Documentation**
+# **CD Workflow Documentation**
 
 This document explains the Continuous Deployment (CD) workflow defined in [cd.yml](cd.yml). The workflow is automatically triggered on every `push` to the `master` branch and deploys the application to a remote Virtual Private Server (VPS) using Docker.
 
