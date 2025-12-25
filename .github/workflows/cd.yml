@@ -18,7 +18,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Install Trivy
+      - name: Install Trivy and Syft
         run: |
           sudo apt-get update
           sudo apt-get install -y wget apt-transport-https gnupg
@@ -26,6 +26,7 @@ jobs:
           echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
           sudo apt-get update
           sudo apt-get install -y trivy
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Build Docker image
         run: docker build -t chat:latest .
@@ -33,17 +34,8 @@ jobs:
       - name: Scan Docker image with Trivy
         run: trivy image --exit-code 1 --severity CRITICAL chat:latest
 
-      - name: Download SBOM from CI
-        uses: actions/download-artifact@v4
-        with:
-          name: sbom
-
-      - name: Verify SBOM exists
-        run: |
-          if [ ! -f sbom.spdx.json ]; then
-            echo "SBOM file missing! Aborting deployment."
-            exit 1
-          fi
+      - name: Generate SBOM with Syft
+        run: syft chat:latest -o spdx-json > sbom.spdx.json
 
       - name: Save Docker image to tar
         run: docker save chat:latest -o chat.tar
