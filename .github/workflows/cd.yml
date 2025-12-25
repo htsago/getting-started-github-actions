@@ -18,11 +18,38 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
       - name: Build Docker image
         run: docker build -t chat:latest .
 
+      - name: Scan Docker image with Trivy
+        run: trivy image --exit-code 1 --severity CRITICAL chat:latest
+
+      - name: Download SBOM from CI
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom
+
+      - name: Verify SBOM exists
+        run: |
+          if [ ! -f sbom.spdx.json ]; then
+            echo "SBOM file missing! Aborting deployment."
+            exit 1
+          fi
+
       - name: Save Docker image to tar
         run: docker save chat:latest -o chat.tar
+
+      - name: Generate checksum for image
+        run: sha256sum chat.tar > chat.tar.sha256
 
       - name: Copy artifacts to VPS
         uses: appleboy/scp-action@v1.0.0
@@ -30,7 +57,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
-          source: "chat.tar,docker-compose.yml"
+          source: "chat.tar,chat.tar.sha256,sbom.spdx.json,docker-compose.yml"
           target: "/opt/chat/"
 
       - name: Load image and restart service on VPS
@@ -41,6 +68,10 @@ jobs:
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           script: |
             cd /opt/chat
+            if ! sha256sum -c chat.tar.sha256; then
+              echo "Checksum verification failed! Aborting deployment."
+              exit 1
+            fi
             docker load -i chat.tar
             docker compose down
             docker compose up -d
