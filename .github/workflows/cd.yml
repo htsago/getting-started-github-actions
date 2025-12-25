@@ -11,11 +11,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Trivy and Syft
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
         run: docker build -t chat:latest .
+
+      - name: Scan Docker image with Trivy
+        run: trivy image --exit-code 1 --severity CRITICAL chat:latest
+
+      - name: Generate SBOM with Syft
+        run: syft chat:latest -o spdx-json > sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: sbom
+          path: sbom.spdx.json
 
       - name: Save Docker image to tar
         run: docker save chat:latest -o chat.tar
@@ -26,7 +48,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
-          source: "chat.tar,docker-compose.yml"
+          source: "chat.tar,docker-compose.yml,sbom.spdx.json"
           target: "/opt/chat/"
 
       - name: Load image and restart service on VPS
