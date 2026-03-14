@@ -11,6 +11,10 @@ jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,21 +22,27 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Install Trivy and Syft
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget apt-transport-https gnupg
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install -y trivy
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-
       - name: Build Docker image
-        run: docker build -t chat:latest .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: chat:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Scan Docker image with Trivy
-        run: trivy image --exit-code 1 --severity CRITICAL chat:latest
+      - name: Run Trivy scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'chat:latest'
+          format: 'sarif'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
 
       - name: Generate SBOM with Syft
         run: syft chat:latest -o spdx-json > sbom.spdx.json
